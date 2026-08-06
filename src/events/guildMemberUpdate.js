@@ -34,24 +34,8 @@ module.exports = {
         try {
 
 
-            // espera o Discord atualizar o cache
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-
-
-            const member =
-                await newMember.guild.members.fetch(
-                    newMember.id,
-                    {
-                        force:true
-                    }
-                );
-
-
-
-
             const addedRoles =
-                member.roles.cache.filter(
+                newMember.roles.cache.filter(
 
                     role =>
                     !oldMember.roles.cache.has(role.id)
@@ -69,7 +53,7 @@ module.exports = {
 
             const protectedRoles =
                 getProtectedRoles(
-                    member.guild.id
+                    newMember.guild.id
                 );
 
 
@@ -81,15 +65,103 @@ module.exports = {
 
 
 
+            const approverRole =
+                getApproverRole(
+                    newMember.guild.id
+                );
+
+
+
+            // =========================
+            // IGNORA APROVADORES
+            // =========================
+
+            if (
+
+                approverRole &&
+
+                newMember.roles.cache.has(
+                    approverRole
+                )
+
+            ) {
+
+                return;
+
+            }
+
+
+
+
+
+
+
+            const ignoredRoles = new Set();
+
+
+
+            for (const role of addedRoles.values()) {
+
+
+                const key =
+                    `${newMember.id}_${role.id}`;
+
+
+
+                if (
+
+                    global.approvedCargo.has(
+                        key
+                    )
+
+                ) {
+
+
+                    global.approvedCargo.delete(
+                        key
+                    );
+
+
+                    ignoredRoles.add(
+                        role.id
+                    );
+
+
+                }
+
+
+            }
+
+
+
+
+
+
+
+
 
             const blockedRoles =
                 addedRoles.filter(
 
+
                     role =>
 
-                    protectedRoles.includes(role.id)
+
+                    protectedRoles.includes(
+                        role.id
+                    )
+
+
+                    &&
+
+
+                    !ignoredRoles.has(
+                        role.id
+                    )
+
 
                 );
+
 
 
 
@@ -101,29 +173,35 @@ module.exports = {
 
 
 
+
+
+
             const channelId =
                 getApprovalChannel(
-                    member.guild.id
+                    newMember.guild.id
                 );
 
-
-
-            const approverRole =
-                getApproverRole(
-                    member.guild.id
-                );
 
 
 
             const channel =
-                member.guild.channels.cache.get(
+                newMember.guild.channels.cache.get(
                     channelId
                 );
 
 
 
-            if (!channel)
+            if (!channel) {
+
+
+                console.log(
+                    "❌ Canal de aprovação não configurado."
+                );
+
+
                 return;
+
+            }
 
 
 
@@ -134,17 +212,19 @@ module.exports = {
 
 
 
+
+                // Verifica hierarquia do bot
+
                 if (
 
                     role.position >=
-                    member.guild.members.me.roles.highest.position
+                    newMember.guild.members.me.roles.highest.position
 
                 ) {
 
 
                     console.log(
-                        "Sem permissão para remover:",
-                        role.name
+                        `❌ Bot sem permissão para remover ${role.name}`
                     );
 
 
@@ -156,13 +236,15 @@ module.exports = {
 
 
 
-                await member.roles.remove(
+
+                await newMember.roles.remove(
 
                     role.id,
 
                     "Cargo protegido aguardando aprovação"
 
                 );
+
 
 
 
@@ -177,13 +259,13 @@ module.exports = {
 
                     (
 
-                    guild_id,
+                        guild_id,
 
-                    user_id,
+                        user_id,
 
-                    role_id,
+                        role_id,
 
-                    executor_id
+                        executor_id
 
                     )
 
@@ -193,15 +275,19 @@ module.exports = {
 
                     .run(
 
-                        member.guild.id,
 
-                        member.id,
+                        newMember.guild.id,
+
+                        newMember.id,
 
                         role.id,
 
                         oldMember.id
 
+
                     );
+
+
 
 
 
@@ -224,14 +310,17 @@ module.exports = {
                         "🛡️ Solicitação de cargo"
                     )
 
+
                     .setDescription(
 
 `
 👤 Usuário:
-<@${member.id}>
+<@${newMember.id}>
+
 
 🎖️ Cargo:
 <@&${role.id}>
+
 
 🆔 Pedido:
 ${requestId}
@@ -239,11 +328,15 @@ ${requestId}
 
                     )
 
+
                     .setColor(
                         "Orange"
                     )
 
+
                     .setTimestamp();
+
+
 
 
 
@@ -256,6 +349,7 @@ ${requestId}
                     new ActionRowBuilder()
 
                     .addComponents(
+
 
 
                         new ButtonBuilder()
@@ -274,6 +368,8 @@ ${requestId}
 
 
 
+
+
                         new ButtonBuilder()
 
                         .setCustomId(
@@ -288,6 +384,8 @@ ${requestId}
                             ButtonStyle.Danger
                         )
 
+
+
                     );
 
 
@@ -296,25 +394,48 @@ ${requestId}
 
 
 
+
+
+                const approverRole =
+                    getApproverRole(
+                        newMember.guild.id
+                    );
+
+
+
+
+
                 await channel.send({
+
 
                     content:
 
                     approverRole
+
                     ?
+
                     `<@&${approverRole}>`
+
                     :
+
                     "",
 
 
+
                     embeds:[
+
                         embed
+
                     ],
 
 
+
                     components:[
+
                         buttons
+
                     ]
+
 
                 });
 
@@ -325,12 +446,19 @@ ${requestId}
 
 
 
+
+
+
         } catch(error) {
 
 
+
             console.error(
+
                 "Erro CargoGuard:",
+
                 error
+
             );
 
 
