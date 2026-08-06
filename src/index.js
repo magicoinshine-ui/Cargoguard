@@ -13,12 +13,13 @@ const commandHandler = require("./handlers/commandHandler");
 const app = express();
 
 app.get("/", (req, res) => {
-    res.send("CargoGuard online!");
+    res.status(200).send("CargoGuard online!");
 });
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+// Escuta em todas as interfaces de rede (necessário para o Render)
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`🌐 Servidor HTTP ativo na porta ${PORT}`);
 });
 
